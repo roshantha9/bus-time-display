@@ -1,15 +1,17 @@
 /*jshint esversion: 6 */
 const https = require('https');
-//var url = require( "url" );
 const querystring = require('querystring');
+
+// local imports
+const priData = require('./pri-settings');
+const SESSIONID_URL = priData.SESSIONID_URL;
+const BUSDATA_URL = priData.BUSDATA_URL;
+const BUS_STOP_NAMES = priData.BUS_STOP_NAMES;
 
 
 
 /* constants */
-const SESSIONID_URL = 'https://ebus.tycg.gov.tw/NewTaoyuan/Dybus.aspx';
-const BUSDATA_URL = 'https://ebus.tycg.gov.tw/NewTaoyuan/API/BusXMLLine_close.aspx';
-const BUS_STOP_NAMES = ['Ju-an%20Village', 'National%20Zhongli%20High%20School'];
-//const BUS_STOP_NAMES = ['Ju-an%20Village'];
+
 
 /* global variables */
 var globalCompletedReqs = 0;
