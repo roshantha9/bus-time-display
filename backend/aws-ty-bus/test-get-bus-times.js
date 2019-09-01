@@ -48,7 +48,7 @@ function constructPOSTOptions(sessionID){
 
 
 
-function createBusStopReq(sessionID, stopName) {
+function createBusStopReq(sessionID, stopName, context, callback) {
 
   // construct POST data
   var postData = constructPOSTData(stopName);
@@ -63,14 +63,31 @@ function createBusStopReq(sessionID, stopName) {
   var postReq = https.request(postOptions, function(res) {
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
+
+          console.log("createBusStopReq:: data received");
           //console.log('Response: ' + chunk);
           globalBusStopReqData[stopName] = chunk;
           globalCompletedReqs++;
 
           // the end - we report
           if (globalCompletedReqs == BUS_STOP_NAMES.length){
+            console.log("createBusStopReq:: all reqs done !");
             //console.log(globalBusStopReqData);
-            _printBusStopData(globalBusStopReqData);
+            var bdata = _printBusStopData(globalBusStopReqData);
+
+
+            var response_success = {
+                  "statusCode": 200,
+                  "headers": {
+                      "x-custom-header" : "my custom header value"
+                  },
+                  "body": JSON.stringify(bdata, undefined, 2),
+                  "isBase64Encoded": false
+            };
+
+            callback(null, response_success);
+
+            //context.succeed();
 
 
 
@@ -91,29 +108,6 @@ function createBusStopReq(sessionID, stopName) {
 }
 
 
-function run(){
-
-  resetGlobals();
-
-  // step 1) get session id
-  https.get(SESSIONID_URL, function(response) {
-      cookieData = response.headers['set-cookie'];
-      //console.log(cookieData);
-
-      var regex = /SessionId=(.*?);/;
-      var sessionID = regex.exec(cookieData)[1];
-      console.log(sessionID);
-
-      // send off one request for each bus stop
-      for (var i = 0; i < BUS_STOP_NAMES.length; i++) {
-        createBusStopReq(sessionID, BUS_STOP_NAMES[i]);
-      }
-
-
-  }).on("error", (err) => {
-    console.log("Error: " + err.message);
-  });
-}
 
 /*
  * Format Responses
@@ -154,13 +148,9 @@ function _printBusStopData(allRespData){
       }
     });
 
-    console.log(dataByBusKey);
+    //console.log(dataByBusKey);
+    return dataByBusKey;
 }
-
-
-
-
-
 
 /*
  * Helpers
@@ -171,7 +161,48 @@ function resetGlobals(){
 }
 
 
+exports.handler = function(event, context, callback) {
+  console.log('start request to ' + SESSIONID_URL);
+  https.get(SESSIONID_URL, function(res) {
+  console.log("Got response: " + res.statusCode);
+
+    cookieData = res.headers['set-cookie'];
+    //console.log(cookieData);
+
+    var regex = /SessionId=(.*?);/;
+    var sessionID = regex.exec(cookieData)[1];
+    console.log(sessionID);
+
+    resetGlobals();
+    // send off one request for each bus stop
+    for (var i = 0; i < BUS_STOP_NAMES.length; i++) {
+      createBusStopReq(sessionID, BUS_STOP_NAMES[i], context, callback);
+    }
+
+
+
+  }).on('error', function(e) {
+    console.log("Got error: " + e.message);
+    context.done(null, 'FAILURE');
+  });
+
+  console.log('end request to ' + SESSIONID_URL);
+};
+
 /*
- * Main
- */
-run();
+exports.handler = async (event) => {
+    console.log("running");
+    run();
+
+    console.log("here");
+
+
+    // TODO implement
+    const response = {
+        statusCode: 200,
+        body: JSON.stringify('Hello from Lambda!'),
+    };
+    return response;
+
+};
+*/
