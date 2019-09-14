@@ -49,28 +49,6 @@ function _timeStrToObj(s){
   return d;
 }
 
-
-function convertDateTimeObjtoStr(d, format='time'){  
-  var s = "";
-  switch(format) {
-    case "full":
-      // date & time in YYYY-MM-DD HH:MM format  
-      var s = d.getUTCFullYear() +
-        "-" + d.getUTCMonth() + 
-        '-' + d.getUTCDate() + 
-        ' ' + ((d.getUTCHours()<10?'0':'')+d.getUTCHours()) +           
-        ':' + ((d.getUTCMinutes()<10?'0':'')+d.getUTCMinutes());
-      break;
-    case "time":
-      var s = ' ' + ((d.getUTCHours()<10?'0':'')+d.getUTCHours()) +           
-              ':' + ((d.getUTCMinutes()<10?'0':'')+d.getUTCMinutes());
-      break;    
-    default:
-      break;
-  }   
-  return s;
-}
-
 // we want to only log time when the bus service is active
 // i.e. between 6am - 10pm
 function isNowActiveTime(h, m){
@@ -145,8 +123,7 @@ function sortTimeListAscending(nowObj, tArr){
   // add units
   var result = [];
   for (i = 0; i < arrMins.length; i++){
-    result[i] = arrMins[i].toString()+"m";
-    //result[i] = "10"+"m"; // m = mins
+    result[i] = arrMins[i].toString()+"min";
   }
 
   return result;
@@ -155,9 +132,9 @@ function sortTimeListAscending(nowObj, tArr){
 
 
 
-/*
+
 function removeSimilar(busTimes){
-  
+  /*
   var busTimesClone1 = [...busTimes];
   var busTimesClone2 = [...busTimes];
   var i,j, minDiff;
@@ -227,9 +204,9 @@ function removeSimilar(busTimes){
 
   }
 
-
-}
 */
+}
+
 
 
 module.exports = {
@@ -237,6 +214,5 @@ module.exports = {
   isNowActiveTime,
   isTimeWithinRange,
   getMinsFromString,
-  sortTimeListAscending,
-  convertDateTimeObjtoStr
+  sortTimeListAscending
 };

@@ -233,8 +233,8 @@ exports.handler = function(event, context, callback) {
   globalCurrentTime = utilTime.findCurrentTime();
 
   /* only continue if it's active time to store bus time */
-  //if (false){ // < -- testing
-  if (utilTime.isNowActiveTime(globalCurrentTime.hours,globalCurrentTime.minutes) === false){
+  if (false){ // < -- testing
+  //if (utilTime.isNowActiveTime(globalCurrentTime.hours,globalCurrentTime.minutes) === false){
     addToDynamoDB({}, globalCurrentTime.month, globalCurrentTime.formatUnix, callback);
   }else{
 

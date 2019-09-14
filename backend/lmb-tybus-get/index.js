@@ -13,8 +13,17 @@ const priData = require('./pri-settings');
 
 /* global variables */
 var globalCurrentTime = {};
-var globalDBResponse = {};
+var globalDBResponse = {
+  'ts' : 1234,
+  'tsObj' : null,
+  'busData' : {}
+};
 
+
+const TIME_FILTER_MAX_DELAY = 60;
+
+// for debug
+const DEBUG_SEND_DUMMY_DATA = true;
 
 /****************************************************
  * Construct GET reponse params
@@ -47,19 +56,20 @@ function queryDynamoDB(month, callback){
       callback(null, {statusCode: '500', body:err.stack});
     }
     else{
+      console.log (data);
+      
       var latestTimeStamp = parseInt(data.Items[0].timestamp);
       var latestBusData = data.Items[0].busData;
 
       var d = new Date(latestTimeStamp *1000);
 
-      //console.log(d.getUTCFullYear() + "-" + d.getUTCMonth() + '-' + d.getUTCDate() + '- ' + d.getUTCHours() + ':' + d.getUTCMinutes());
+      //console.log(" TS =" +  utilTime.convertDateTimeObjtoStr(d));
 
       // save db query response
-      globalDBResponse = {
-        'ts' : parseInt(latestTimeStamp),
-        'tsObj' : d,
-        'busData' : latestBusData
-      };
+      globalDBResponse.ts = parseInt(latestTimeStamp);
+      globalDBResponse.tsObj = d;
+      globalDBResponse.busData = latestBusData;
+      
 
       var latestBusDataF = busTimeFilter(latestBusData, globalDBResponse.tsObj);
 
@@ -75,7 +85,7 @@ function queryDynamoDB(month, callback){
             // "headers": {
             //     "x-custom-header" : "my custom header value"
             // },
-            "body": JSON.stringify(generateTextResponse(latestBusDataF), undefined, 2),
+            "body": JSON.stringify(generateGETResponseBodyText(latestBusDataF), undefined, 2),
             "isBase64Encoded": false
       };
       callback(null, response_success);
@@ -99,14 +109,14 @@ function resetGlobals(){
 
  // filter out:
  // - 'Service Over'
- // - buses in the far future
- // -
+ // - buses in the far future 
 function busTimeFilter(busData, nowObj){
   var busDataF = {}; // filtered result
-
-
   //console.log(nowObj.getHours() + ":" + nowObj.getMinutes());
 
+  if (DEBUG_SEND_DUMMY_DATA){
+    return busTimeFilterDummyData();
+  }
 
   Object.keys(busData).forEach(function(key) {
     var busTimes = busData[key];
@@ -124,7 +134,7 @@ function busTimeFilter(busData, nowObj){
           }
         }else{
           //console.log(val);
-          if (utilTime.isTimeWithinRange(val, nowObj, 60) === true){
+          if (utilTime.isTimeWithinRange(val, nowObj, TIME_FILTER_MAX_DELAY) === true){
             valF.push(val);
           }else{
             // pass
@@ -135,19 +145,12 @@ function busTimeFilter(busData, nowObj){
       }
     }
 
-    //console.log(valF);
-
     // get rid of duplicates
     if (valF.length > 0){
         var uniqueValF = [... new Set(valF)];
         // sort and convert to uniform units
         busDataF[key] = utilTime.sortTimeListAscending(nowObj, uniqueValF);
     }
-
-
-    //console.log(busDataF[key]);
-
-
   });
 
   return busDataF;
@@ -155,22 +158,50 @@ function busTimeFilter(busData, nowObj){
 
 
 
+function busTimeFilterDummyData(){
+  var busDataF = {};
+  for (var i = 0; i < priData.BUSROUTE_OUTPUT_ORDER.length; i++){
+    var k = priData.BUSROUTE_OUTPUT_ORDER[i];
+    busDataF[k] = ["10m", "10m", "10m"];    
+  }
+  return busDataF;
+}
+
 
 // multiline text response to be displayed by the client
-function generateTextResponse(busData){
-  var replyBody = {};
-  var sortedBuses = Object.keys(busData);
-  sortedBuses.sort();
-
-  for (var i = 0; i < sortedBuses.length; i++){
-    var k = sortedBuses[i];
-    var times = busData[k].join(' , ');
-    replyBody['ln'+i] = k + ": " + times;
+function generateGETResponseBodyDict(busData){
+  var replyBody = {};  
+  if (Object.keys(busData).length > 0){       
+    for (var i = 0; i < priData.BUSROUTE_OUTPUT_ORDER.length; i++){
+      var k = priData.BUSROUTE_OUTPUT_ORDER[i];
+      var times = busData[k].join(',');
+      replyBody['ln'+i] = k + ": " + times;
+    }
+  }else{
+    // pass
   }
 
   return replyBody;
 }
 
+function generateGETResponseBodyText(busData){
+  var replyBody = "";
+  // add timestamp (from DB entry)
+  replyBody += "Time: " + utilTime.convertDateTimeObjtoStr(globalDBResponse.tsObj) + "**";
+
+
+  if (Object.keys(busData).length > 0){        
+    for (var i = 0; i < priData.BUSROUTE_OUTPUT_ORDER.length; i++){
+      var k = priData.BUSROUTE_OUTPUT_ORDER[i];
+      var times = busData[k].join(',');
+      replyBody += k + ": " + times + "**";
+    }    
+  }else{
+    // pass
+  }
+
+  return replyBody;  
+}
 
 
 
