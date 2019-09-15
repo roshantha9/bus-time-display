@@ -21,9 +21,10 @@ var globalDBResponse = {
 
 
 const TIME_FILTER_MAX_DELAY = 60;
+const OUTPUT_BUS_LABEL_COL_WIDTH = 4; // chars wide
 
 // for debug
-const DEBUG_SEND_DUMMY_DATA = true;
+const DEBUG_SEND_DUMMY_DATA = false;
 
 /****************************************************
  * Construct GET reponse params
@@ -107,6 +108,20 @@ function resetGlobals(){
 }
 
 
+function _busLabelFormat(b){
+  var lbl='';
+  if (b.length == 3){
+    lbl = b + ' ';
+  }
+  else if (b.length == 4){
+    lbl = b;
+  }else{
+    lbl = b;
+  }
+  return lbl;
+}
+
+
  // filter out:
  // - 'Service Over'
  // - buses in the far future 
@@ -167,7 +182,7 @@ function busTimeFilterDummyData(){
   return busDataF;
 }
 
-
+/*
 // multiline text response to be displayed by the client
 function generateGETResponseBodyDict(busData){
   var replyBody = {};  
@@ -183,18 +198,25 @@ function generateGETResponseBodyDict(busData){
 
   return replyBody;
 }
+*/
+
 
 function generateGETResponseBodyText(busData){
   var replyBody = "";
   // add timestamp (from DB entry)
   replyBody += "Time: " + utilTime.convertDateTimeObjtoStr(globalDBResponse.tsObj) + "**";
 
-
   if (Object.keys(busData).length > 0){        
     for (var i = 0; i < priData.BUSROUTE_OUTPUT_ORDER.length; i++){
       var k = priData.BUSROUTE_OUTPUT_ORDER[i];
-      var times = busData[k].join(',');
-      replyBody += k + ": " + times + "**";
+      if (k in busData){
+        if (busData[k].length>1){
+          var times = busData[k].join(',');
+          replyBody += _busLabelFormat(k) + ": " + times + "**";
+        }else{
+          replyBody += _busLabelFormat(k) + ": " + busData[k] + "**";
+        }   
+      }         
     }    
   }else{
     // pass
