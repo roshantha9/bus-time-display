@@ -15,20 +15,34 @@
 #define ESP32 1
 
 #include <Arduino.h>
+
+
 #include <GxEPD2_BW.h>
-//#include <GxEPD2_3C.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 //#include <Fonts/Tiny3x3a2pt7b.h>
-
-//#include <ArduinoHttpClient.h>
 #include "WiFi.h" // ESP32 WiFi include
-#include "secret.h"
 #include <HTTPClient.h>
 
 
+
+// local imports
+#include "secret.h"
+#include "debug.h"
+
+
+
+// constants
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  10        /* Time ESP32 will go to sleep (in seconds) */
+
+RTC_DATA_ATTR int bootCount = 0;
+
+
+
+
+// EPD global init
 GxEPD2_BW<GxEPD2_154, GxEPD2_154::HEIGHT> display(GxEPD2_154(/*CS=5*/ SS, /*DC=*/ 22, /*RST=*/ 21, /*BUSY=*/ 4));
 
-//#include "bitmaps/Bitmaps200x200.h" // 1.54" b/w
 
 const char HelloWorld[] = "Time: xx:xx\n\
 5040: 20m,20m,20m\n\
@@ -48,47 +62,92 @@ char textBuff[512] = "";
 
 
 
+
+
 /* function prototypes */
 void displayBusData(void);
 void wifiConnect(void);
 void wifiDisconnect(void);
 void httpGetBusData(void);
+void print_wakeup_reason(void);
 
 
 /****************** setup *****************/
 void setup()
 {
+  
+  // setup serial debug
   Serial.begin(115200);
   Serial.println();
-  Serial.println("setup");
-  delay(100);  
-
-  wifiConnect();
+  Serial.println("SETUP:: starting ...");
   
-  Serial.println("setup done");
+  // print boot count and wakeup reason  
+  ++bootCount;
+  Serial.println("Boot number: " + String(bootCount));  
+  print_wakeup_reason();
+
+  // wifi connect and retrieve bus data
+  wifiConnect();
+  delay(200);
+  httpGetBusData();
+  delay(100);
+  wifiDisconnect();
+
+  // display on EPD (full refresh)
+  Serial.println("EPD initialize");
+  display.init();   
+  Serial.println("EPD show bus data");
+  displayBusData();  
+  delay(100);  
+  display.powerOff();
+    
+  // init deep sleep timer
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  Serial.println("SETUP:: sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
+  Serial.println("SETUP:: going to sleep now");
+  delay(1000);
+  Serial.flush(); 
+  esp_deep_sleep_start();
+  
+  
 }
+
+
+
 
 /****************** loop *****************/
 void loop()
-{
-  // first update should be full refresh
-  wifiConnect();
-  delay(2000);
-  httpGetBusData();
-  delay(1000);
-  Serial.println("going to display init");
-  display.init(); 
-  Serial.println("after display init");
-  displayBusData();
-  Serial.println("after display bus data");
-  delay(1000);  
-  display.powerOff();
-  Serial.println("after display power off");
-  wifiDisconnect();
-  delay(10000);  // 10 seconds
-  
-
+{  
+  //This is not going to be called
 }
+
+
+
+
+
+
+/***********************************************************************************************
+ * DS/WAKEUP related
+ ***********************************************************************************************/
+
+void print_wakeup_reason(){
+  esp_sleep_wakeup_cause_t wakeup_reason;
+
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+
+  switch(wakeup_reason)
+  {
+    case ESP_SLEEP_WAKEUP_EXT0 : Serial.println("Wakeup caused by external signal using RTC_IO"); break;
+    case ESP_SLEEP_WAKEUP_EXT1 : Serial.println("Wakeup caused by external signal using RTC_CNTL"); break;
+    case ESP_SLEEP_WAKEUP_TIMER : Serial.println("Wakeup caused by timer"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD : Serial.println("Wakeup caused by touchpad"); break;
+    case ESP_SLEEP_WAKEUP_ULP : Serial.println("Wakeup caused by ULP program"); break;
+    default : Serial.printf("Wakeup was not caused by deep sleep: %d\n",wakeup_reason); break;
+  }
+}
+
+
+
 
 
 /***********************************************************************************************
@@ -96,13 +155,8 @@ void loop()
  ***********************************************************************************************/
 void httpGetBusData(){
 
-  Serial.println("httpGetBusData::Exit");
-  //HttpClient htclient = HttpClient(configEthClient, configServer, 80);
-
-  //HttpClient http;
-  //http.begin(url);
-
-
+  Serial.println("httpGetBusData::Enter");
+    
   HTTPClient http;
   http.begin(TYBUS_DATA_URL, root_ca); //Specify the URL and certificate
 
@@ -114,20 +168,19 @@ void httpGetBusData(){
    Serial.println(httpCode);
    Serial.println(payload);
 
+   // add new lines approperiately
    payload.replace("\"", "");
    payload.replace("**", "\n");
 
-   Serial.println("before conversion");
+   //Serial.println("before conversion");
    payload.toCharArray(textBuff, 512);   
-   Serial.println("after conversion");
+   //Serial.println("after conversion");
    Serial.println(textBuff);
 
-  }
- 
+  } 
   else {
     Serial.println("Error on HTTP request");
   }
-
 }
 
 

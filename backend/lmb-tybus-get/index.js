@@ -59,37 +59,53 @@ function queryDynamoDB(month, callback){
     else{
       console.log (data);
       
-      var latestTimeStamp = parseInt(data.Items[0].timestamp);
-      var latestBusData = data.Items[0].busData;
+      // check if items exist
+      if (data.Items.length > 0){
 
-      var d = new Date(latestTimeStamp *1000);
+        var latestTimeStamp = parseInt(data.Items[0].timestamp);
+        var latestBusData = data.Items[0].busData;
 
-      //console.log(" TS =" +  utilTime.convertDateTimeObjtoStr(d));
+        var d = new Date(latestTimeStamp *1000);
 
-      // save db query response
-      globalDBResponse.ts = parseInt(latestTimeStamp);
-      globalDBResponse.tsObj = d;
-      globalDBResponse.busData = latestBusData;
-      
+        //console.log(" TS =" +  utilTime.convertDateTimeObjtoStr(d));
 
-      var latestBusDataF = busTimeFilter(latestBusData, globalDBResponse.tsObj);
+        // save db query response
+        globalDBResponse.ts = parseInt(latestTimeStamp);
+        globalDBResponse.tsObj = d;
+        globalDBResponse.busData = latestBusData;
+        
 
-      console.log("latestTimeStamp = " + latestTimeStamp);
-      console.log("before filtering ===============>");
-      console.log(latestBusData);
-      console.log("after filtering ===============>");
-      console.log(latestBusDataF);
+        var latestBusDataF = busTimeFilter(latestBusData, globalDBResponse.tsObj);
 
-      // send response
-      var response_success = {
-            "statusCode": 200,
-            // "headers": {
-            //     "x-custom-header" : "my custom header value"
-            // },
-            "body": JSON.stringify(generateGETResponseBodyText(latestBusDataF), undefined, 2),
-            "isBase64Encoded": false
-      };
-      callback(null, response_success);
+        console.log("latestTimeStamp = " + latestTimeStamp);
+        console.log("before filtering ===============>");
+        console.log(latestBusData);
+        console.log("after filtering ===============>");
+        console.log(latestBusDataF);
+
+        // send response
+        var response_success = {
+              "statusCode": 200,
+              // "headers": {
+              //     "x-custom-header" : "my custom header value"
+              // },
+              "body": JSON.stringify(generateGETResponseBodyText(latestBusDataF), undefined, 2),
+              "isBase64Encoded": false
+        };
+        callback(null, response_success);
+
+      }else{
+        console.log("DB query WARNING - empty results !!");
+        // send response
+        var response_success = {
+          "statusCode": 200,          
+          "body": JSON.stringify("NO DATA" + "**", undefined, 2),
+          "isBase64Encoded": false
+        };
+        callback(null, response_success);
+      }
+
+
     }
   });
 
@@ -205,11 +221,13 @@ function generateGETResponseBodyText(busData){
   var replyBody = "";
   // add timestamp (from DB entry)
   replyBody += "Time: " + utilTime.convertDateTimeObjtoStr(globalDBResponse.tsObj) + "**";
+  var activeBusCount = 0;
 
   if (Object.keys(busData).length > 0){        
     for (var i = 0; i < priData.BUSROUTE_OUTPUT_ORDER.length; i++){
       var k = priData.BUSROUTE_OUTPUT_ORDER[i];
       if (k in busData){
+        activeBusCount++;
         if (busData[k].length>1){
           var times = busData[k].join(',');
           replyBody += _busLabelFormat(k) + ": " + times + "**";
@@ -217,9 +235,15 @@ function generateGETResponseBodyText(busData){
           replyBody += _busLabelFormat(k) + ": " + busData[k] + "**";
         }   
       }         
-    }    
+    }
+    
+    if (activeBusCount==0){
+      replyBody += "NO BUSES" + "**";
+    }
+
   }else{
     // pass
+    replyBody += "NO BUSES" + "**";
   }
 
   return replyBody;  
